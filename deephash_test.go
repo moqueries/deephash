@@ -1,10 +1,12 @@
-package deephash
+package deephash_test
 
 import (
 	"bytes"
 	"fmt"
 	"reflect"
 	"testing"
+
+	"moqueries.org/deephash"
 )
 
 type testStruct struct {
@@ -170,7 +172,7 @@ var sameCases = [][]interface{}{
 func TestDifferentCases(t *testing.T) {
 	seen := make(map[string]bool)
 	for _, tc := range differentTestCases {
-		h := Hash(tc)
+		h := deephash.Hash(tc)
 		hs := fmt.Sprintf("%x", h)
 		if len(h) == 0 {
 			t.Errorf("Test case %v yields zero length hash", tc)
@@ -187,7 +189,7 @@ func TestSameCases(t *testing.T) {
 	for _, tcs := range sameCases {
 		hash := ""
 		for _, tc := range tcs {
-			h := Hash(tc)
+			h := deephash.Hash(tc)
 			hs := fmt.Sprintf("%x", h)
 			if len(h) == 0 {
 				t.Errorf("Test case %v yields zero length hash", tc)
@@ -211,14 +213,14 @@ func TestCircular(t *testing.T) {
 	a := &circular{}
 	b := &circular{V: a}
 
-	h := Hash(b)
+	h := deephash.Hash(b)
 	if h == nil || len(h) == 0 {
 		t.Error("Hash circular should yield some hash value")
 	}
 
 	// now actually circular it up
 	a.V = b
-	h = Hash(b)
+	h = deephash.Hash(b)
 	if h == nil || len(h) == 0 {
 		t.Error("Hash circular should yield some hash value")
 	}
@@ -243,19 +245,19 @@ func TestRef(t *testing.T) {
 		B:  RefB{Id: "anothertest"},
 	}
 
-	if !bytes.Equal(Hash(a), Hash(b)) {
+	if !bytes.Equal(deephash.Hash(a), deephash.Hash(b)) {
 		t.Fatal("Expecting our two reference cases to hash the same even though different underlying objects, because same values")
 	}
-	if !bytes.Equal(Hash(a), Hash(a)) {
+	if !bytes.Equal(deephash.Hash(a), deephash.Hash(a)) {
 		t.Fatal("Expecting our two reference cases to hash the same because they are the same")
 	}
 }
 
 func TestBooleans(t *testing.T) {
-	if !bytes.Equal(Hash(true), Hash(true)) {
+	if !bytes.Equal(deephash.Hash(true), deephash.Hash(true)) {
 		t.Fatal("Expecting the same boolean value to have the same hash")
 	}
-	if bytes.Equal(Hash(true), Hash(false)) {
+	if bytes.Equal(deephash.Hash(true), deephash.Hash(false)) {
 		t.Fatal("Expecting true to hash differently than false")
 	}
 }

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/davegardnerisme/deephash"
+	"moqueries.org/deephash"
 )
 
 type example struct {

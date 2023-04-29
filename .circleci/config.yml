@@ -1,0 +1,67 @@
+version: 2.1
+
+orbs:
+  codecov: codecov/codecov@3.2.2
+
+executors:
+  go:
+    docker:
+    - image: cimg/go:1.18
+
+jobs:
+  build:
+
+    environment:
+      TEST_RESULTS: /tmp/test-results
+
+    executor: go
+
+    steps:
+    - checkout
+    - run: mkdir -p $TEST_RESULTS
+
+    - run:
+        name: Run tests
+
+        command: |
+          set -ux
+          PACKAGE_NAMES=$(go list ./... | circleci tests split --split-by=timings --timings-type=classname)
+          gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- \
+            -race -covermode=atomic -coverprofile=coverage.out $PACKAGE_NAMES
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+    - codecov/upload
+
+    - run:
+        name: Run code linters
+
+        command: |
+          set -ux
+          # Installs the latest version each time. This may impact build
+          # repeatability but only mildly.
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
+            sh -s -- -b $(go env GOPATH)/bin
+          golangci-lint run
+
+    - run:
+        name: Check for dirty working directory
+
+        command: |
+          set -ux
+          git status
+          git diff
+          [[ -z $(git status --short) ]] || (echo 'Untracked changes' && exit 1)
+
+    - store_artifacts:
+        path: /tmp/test-results
+        destination: raw-test-output
+
+    - store_test_results:
+        path: /tmp/test-results
+
+workflows:
+  version: 2
+  build-workflow:
+    jobs:
+    - build
