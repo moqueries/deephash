@@ -63,52 +63,52 @@ var differentTestCases = []interface{}{
 
 	// string maps
 	map[string]testStruct{
-		"foo": testStruct{S: "baz"},
-		"bar": testStruct{S: "baz"},
+		"foo": {S: "baz"},
+		"bar": {S: "baz"},
 	},
 	map[string]testStruct{
-		"foo": testStruct{S: "BAZZER"},
-		"bar": testStruct{S: "BAZZER"},
+		"foo": {S: "BAZZER"},
+		"bar": {S: "BAZZER"},
 	},
 
 	// other maps
 	map[testStruct]testStruct{
-		testStruct{S: "baz"}: testStruct{S: "baz"},
-		testStruct{S: "bar"}: testStruct{S: "bar"},
+		testStruct{S: "baz"}: {S: "baz"},
+		testStruct{S: "bar"}: {S: "bar"},
 	},
 
 	// slices -- ordered here
 	[]testStruct{
-		testStruct{S: "foo"},
-		testStruct{S: "bar"},
-		testStruct{S: "baz"},
+		{S: "foo"},
+		{S: "bar"},
+		{S: "baz"},
 	},
 	[]testStruct{
-		testStruct{S: "bar"},
-		testStruct{S: "foo"},
-		testStruct{S: "baz"},
+		{S: "bar"},
+		{S: "foo"},
+		{S: "baz"},
 	},
 	[]testStruct{
-		testStruct{S: "bar"},
-		testStruct{S: "baz"},
-		testStruct{S: "foo"},
+		{S: "bar"},
+		{S: "baz"},
+		{S: "foo"},
 	},
 
-	// arrays -- we're looking at the contents, so we have to be differnet to the slices
+	// arrays -- we're looking at the contents, so we have to be different to the slices
 	[3]testStruct{
-		testStruct{S: "FOO"},
-		testStruct{S: "BAR"},
-		testStruct{S: "BAZ"},
+		{S: "FOO"},
+		{S: "BAR"},
+		{S: "BAZ"},
 	},
 	[3]testStruct{
-		testStruct{S: "BAR"},
-		testStruct{S: "FOO"},
-		testStruct{S: "BAZ"},
+		{S: "BAR"},
+		{S: "FOO"},
+		{S: "BAZ"},
 	},
 	[3]testStruct{
-		testStruct{S: "BAR"},
-		testStruct{S: "BAZ"},
-		testStruct{S: "FOO"},
+		{S: "BAR"},
+		{S: "BAZ"},
+		{S: "FOO"},
 	},
 
 	// Interface types
@@ -118,51 +118,51 @@ var differentTestCases = []interface{}{
 
 var sameCases = [][]interface{}{
 	// simple stuff
-	[]interface{}{
+	{
 		"foo",
 		"foo",
 	},
 
 	// hash order shouldn't matter
-	[]interface{}{
+	{
 		map[string]testStruct{
-			"foo": testStruct{S: "baz"},
-			"bar": testStruct{S: "baz"},
+			"foo": {S: "baz"},
+			"bar": {S: "baz"},
 		},
 		map[string]testStruct{
-			"bar": testStruct{S: "baz"},
-			"foo": testStruct{S: "baz"},
+			"bar": {S: "baz"},
+			"foo": {S: "baz"},
 		},
 	},
 
 	// we care about the contents, so we want different values of a struct with same contents to be same
-	[]interface{}{
+	{
 		&testStruct{F32: 43.0, F64: 43.0},
 		&testStruct{F32: 43.0, F64: 43.0},
 		testStruct{F32: 43.0, F64: 43.0},
 	},
 
 	// slices and arrays should match
-	[]interface{}{
+	{
 		[3]testStruct{
-			testStruct{S: "FOO"},
-			testStruct{S: "BAR"},
-			testStruct{S: "BAZ"},
+			{S: "FOO"},
+			{S: "BAR"},
+			{S: "BAZ"},
 		},
 		[]testStruct{
-			testStruct{S: "FOO"},
-			testStruct{S: "BAR"},
-			testStruct{S: "BAZ"},
+			{S: "FOO"},
+			{S: "BAR"},
+			{S: "BAZ"},
 		},
 		[]testStruct{
-			testStruct{S: "FOO"},
-			testStruct{S: "BAR"},
-			testStruct{S: "BAZ"},
+			{S: "FOO"},
+			{S: "BAR"},
+			{S: "BAZ"},
 		},
 	},
 
 	// We should follow pointers of pointers and pointers within interfaces
-	[]interface{}{
+	{
 		&testStruct{Interface: testStruct{I: 42}},
 		&testStruct{Interface: &testStruct{I: 42}},
 		&testStruct{Interface: reflect.ValueOf(&testStruct{I: 42}).Interface()},
@@ -214,14 +214,14 @@ func TestCircular(t *testing.T) {
 	b := &circular{V: a}
 
 	h := deephash.Hash(b)
-	if h == nil || len(h) == 0 {
+	if len(h) == 0 {
 		t.Error("Hash circular should yield some hash value")
 	}
 
 	// now actually circular it up
 	a.V = b
 	h = deephash.Hash(b)
-	if h == nil || len(h) == 0 {
+	if len(h) == 0 {
 		t.Error("Hash circular should yield some hash value")
 	}
 }
