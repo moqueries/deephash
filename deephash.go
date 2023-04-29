@@ -8,31 +8,25 @@ import (
 	"sort"
 )
 
+// Traverses recursively hashing each exported value
 // During deepHash, must keep track of visited, to avoid circular traversal.
 // The algorithm is based on: https://github.com/imdario/mergo
-type visit struct {
-	ptr  uintptr
-	typ  reflect.Type
-	next *visit
-}
-
-// Traverses recursively hashing each exported value
-func deepHash(src reflect.Value, visited map[uintptr]*visit, depth int) []byte {
+func deepHash(src reflect.Value, visited map[uintptr][]reflect.Type) []byte {
 	if !src.IsValid() {
 		return nil
 	}
 	if src.CanAddr() {
 		addr := src.UnsafeAddr()
-		h := 17 * addr
+		h := addr
 		seen := visited[h]
-		typ := src.Type()
-		for p := seen; p != nil; p = p.next {
-			if p.ptr == addr && p.typ == typ {
+		newType := src.Type()
+		for _, typ := range seen {
+			if typ == newType {
 				return nil
 			}
 		}
 		// Remember, remember...
-		visited[h] = &visit{addr, typ, seen}
+		visited[h] = append(seen, newType)
 	}
 
 	hash := fnv.New64a()
@@ -45,7 +39,7 @@ func deepHash(src reflect.Value, visited map[uintptr]*visit, depth int) []byte {
 	switch src.Kind() {
 	case reflect.Struct:
 		for i, n := 0, src.NumField(); i < n; i++ {
-			if b := deepHash(src.Field(i), visited, depth+1); b != nil {
+			if b := deepHash(src.Field(i), visited); b != nil {
 				hash.Write(b)
 			}
 		}
@@ -54,7 +48,7 @@ func deepHash(src reflect.Value, visited map[uintptr]*visit, depth int) []byte {
 		indexedByHash := make(map[string]reflect.Value)
 
 		for i, key := range src.MapKeys() {
-			kh := fmt.Sprintf("%x", deepHash(key, visited, depth+1))
+			kh := fmt.Sprintf("%x", deepHash(key, visited))
 			sortedHashedKeys[i] = kh
 			indexedByHash[kh] = src.MapIndex(key)
 		}
@@ -63,11 +57,11 @@ func deepHash(src reflect.Value, visited map[uintptr]*visit, depth int) []byte {
 		// hash each value, in order
 		for _, kh := range sortedHashedKeys {
 			hash.Write([]byte(kh))
-			hash.Write(deepHash(indexedByHash[kh], visited, depth+1))
+			hash.Write(deepHash(indexedByHash[kh], visited))
 		}
 	case reflect.Slice, reflect.Array:
 		for i := 0; i < src.Len(); i++ {
-			hash.Write(deepHash(src.Index(i), visited, depth+1))
+			hash.Write(deepHash(src.Index(i), visited))
 		}
 	case reflect.String:
 		hash.Write([]byte(src.String()))
@@ -93,5 +87,5 @@ func deepHash(src reflect.Value, visited map[uintptr]*visit, depth int) []byte {
 // properties, including slices and maps/
 func Hash(src interface{}) []byte {
 	vSrc := reflect.ValueOf(src)
-	return deepHash(vSrc, make(map[uintptr]*visit), 0)
+	return deepHash(vSrc, make(map[uintptr][]reflect.Type))
 }
