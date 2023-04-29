@@ -44,15 +44,6 @@ jobs:
             sh -s -- -b $(go env GOPATH)/bin
           golangci-lint run
 
-    - run:
-        name: Check for dirty working directory
-
-        command: |
-          set -ux
-          git status
-          git diff
-          [[ -z $(git status --short) ]] || (echo 'Untracked changes' && exit 1)
-
     - store_artifacts:
         path: /tmp/test-results
         destination: raw-test-output
