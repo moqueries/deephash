@@ -1,7 +1,6 @@
 package deephash_test
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
 	"testing"
@@ -116,92 +115,103 @@ var differentTestCases = []interface{}{
 	&testStruct{Interface: &testStruct{I: 100}},
 }
 
-var sameCases = [][]interface{}{
-	// simple stuff
-	{
-		"foo",
-		"foo",
-	},
-
-	// hash order shouldn't matter
-	{
-		map[string]testStruct{
-			"foo": {S: "baz"},
-			"bar": {S: "baz"},
-		},
-		map[string]testStruct{
-			"bar": {S: "baz"},
-			"foo": {S: "baz"},
-		},
-	},
-
-	// we care about the contents, so we want different values of a struct with same contents to be same
-	{
-		&testStruct{F32: 43.0, F64: 43.0},
-		&testStruct{F32: 43.0, F64: 43.0},
-		testStruct{F32: 43.0, F64: 43.0},
-	},
-
-	// slices and arrays should match
-	{
-		[3]testStruct{
-			{S: "FOO"},
-			{S: "BAR"},
-			{S: "BAZ"},
-		},
-		[]testStruct{
-			{S: "FOO"},
-			{S: "BAR"},
-			{S: "BAZ"},
-		},
-		[]testStruct{
-			{S: "FOO"},
-			{S: "BAR"},
-			{S: "BAZ"},
-		},
-	},
-
-	// We should follow pointers of pointers and pointers within interfaces
-	{
-		&testStruct{Interface: testStruct{I: 42}},
-		&testStruct{Interface: &testStruct{I: 42}},
-		&testStruct{Interface: reflect.ValueOf(&testStruct{I: 42}).Interface()},
-	},
-}
-
 func TestDifferentCases(t *testing.T) {
 	seen := make(map[string]bool)
-	for _, tc := range differentTestCases {
-		h := deephash.Hash(tc)
-		hs := fmt.Sprintf("%x", h)
-		if len(h) == 0 {
-			t.Errorf("Test case %v yields zero length hash", tc)
-			continue
-		}
-		if seen[hs] {
-			t.Errorf("Test case %v hashes to %v which has already been seen", tc, hs)
-		}
-		seen[hs] = true
+	for n, tc := range differentTestCases {
+		t.Run(fmt.Sprintf("[%d] %#v", n, tc), func(t *testing.T) {
+			h := deephash.Hash(tc)
+			hs := fmt.Sprintf("%x", h)
+			if h == 0 {
+				t.Errorf("Test case %v yields zero hash", tc)
+				return
+			}
+			if seen[hs] {
+				t.Errorf("Test case %v hashes to %v which has already been seen", tc, hs)
+			}
+			seen[hs] = true
+		})
 	}
 }
 
 func TestSameCases(t *testing.T) {
-	for _, tcs := range sameCases {
-		hash := ""
-		for _, tc := range tcs {
-			h := deephash.Hash(tc)
-			hs := fmt.Sprintf("%x", h)
-			if len(h) == 0 {
-				t.Errorf("Test case %v yields zero length hash", tc)
-				continue
-			}
+	for name, tcs := range map[string][]interface{}{
+		"simple stuff": {
+			"foo",
+			"foo",
+		},
 
-			if hash == "" {
-				hash = hs
-			} else if hash != hs {
-				t.Errorf("Test case %v hashes to '%v' which is different to previous '%v'", tc, hs, hash)
+		"hash order shouldn't matter": {
+			map[string]testStruct{
+				"foo": {S: "baz"},
+				"bar": {S: "baz"},
+			},
+			map[string]testStruct{
+				"bar": {S: "baz"},
+				"foo": {S: "baz"},
+			},
+		},
+
+		"we care about the contents, so we want different values of a struct with same contents to be same": {
+			&testStruct{F32: 43.0, F64: 43.0},
+			&testStruct{F32: 43.0, F64: 43.0},
+			testStruct{F32: 43.0, F64: 43.0},
+		},
+
+		"slices and arrays should match": {
+			[3]testStruct{
+				{S: "FOO"},
+				{S: "BAR"},
+				{S: "BAZ"},
+			},
+			[]testStruct{
+				{S: "FOO"},
+				{S: "BAR"},
+				{S: "BAZ"},
+			},
+			[]testStruct{
+				{S: "FOO"},
+				{S: "BAR"},
+				{S: "BAZ"},
+			},
+		},
+
+		"We should follow pointers of pointers and pointers within interfaces": {
+			&testStruct{Interface: testStruct{I: 42}},
+			&testStruct{Interface: &testStruct{I: 42}},
+			&testStruct{Interface: reflect.ValueOf(&testStruct{I: 42}).Interface()},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			hash := uint64(0)
+			var first interface{}
+			for n, tc := range tcs {
+				h := deephash.Hash(tc)
+				if h == 0 {
+					t.Errorf("Test case %v yields zero hash", tc)
+					continue
+				}
+
+				if hash == 0 {
+					hash = h
+				} else if hash != h {
+					t.Errorf("Test case %v hashes to '%v' which is different to previous '%v'", tc, h, hash)
+				}
+
+				if n == 0 {
+					first = tc
+				} else {
+					diffs := deephash.Diff("xyz", first, tc)
+					if len(diffs) > 0 {
+						t.Errorf("got %#v, want no diffs", diffs)
+					}
+
+					diffs = deephash.Diff("abc", tc, first)
+					if len(diffs) > 0 {
+						t.Errorf("got %#v, want no diffs", diffs)
+					}
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -214,14 +224,14 @@ func TestCircular(t *testing.T) {
 	b := &circular{V: a}
 
 	h := deephash.Hash(b)
-	if len(h) == 0 {
+	if h == 0 {
 		t.Error("Hash circular should yield some hash value")
 	}
 
 	// now actually circular it up
 	a.V = b
 	h = deephash.Hash(b)
-	if len(h) == 0 {
+	if h == 0 {
 		t.Error("Hash circular should yield some hash value")
 	}
 }
@@ -245,19 +255,94 @@ func TestRef(t *testing.T) {
 		B:  RefB{Id: "anothertest"},
 	}
 
-	if !bytes.Equal(deephash.Hash(a), deephash.Hash(b)) {
+	if deephash.Hash(a) != deephash.Hash(b) {
 		t.Fatal("Expecting our two reference cases to hash the same even though different underlying objects, because same values")
-	}
-	if !bytes.Equal(deephash.Hash(a), deephash.Hash(a)) {
-		t.Fatal("Expecting our two reference cases to hash the same because they are the same")
 	}
 }
 
 func TestBooleans(t *testing.T) {
-	if !bytes.Equal(deephash.Hash(true), deephash.Hash(true)) {
-		t.Fatal("Expecting the same boolean value to have the same hash")
-	}
-	if bytes.Equal(deephash.Hash(true), deephash.Hash(false)) {
+	if deephash.Hash(true) == deephash.Hash(false) {
 		t.Fatal("Expecting true to hash differently than false")
+	}
+}
+
+func TestDiff(t *testing.T) {
+	for name, tc := range map[string]struct {
+		lSrc, rSrc interface{}
+		expected   []string
+	}{
+		"strings": {lSrc: "1", rSrc: "2", expected: []string{"xyz is not equal"}},
+		"structs": {
+			lSrc:     testStruct{I: 31, S: "1", Interface: testStruct{I: 42}},
+			rSrc:     testStruct{I: 31, S: "2", Interface: 42},
+			expected: []string{"xyz.S is not equal", "xyz.Interface is not equal"},
+		},
+		"map keys": {
+			lSrc:     map[string]int{"key1": 42},
+			rSrc:     map[string]int{"key2": 42},
+			expected: []string{"xyz[key2-key] is not equal", "xyz[key2] is not equal"},
+		},
+		"map values": {
+			lSrc:     map[string]int{"key1": 42},
+			rSrc:     map[string]int{"key1": 43},
+			expected: []string{"xyz[key1] is not equal"},
+		},
+		"slices": {
+			lSrc:     []int{1, 2, 3, 4},
+			rSrc:     []int{1, 5, 3, 6},
+			expected: []string{"xyz[1] is not equal", "xyz[3] is not equal"},
+		},
+		"arrays": {
+			lSrc:     [4]int{1, 2, 3, 4},
+			rSrc:     [4]int{1, 5, 3, 6},
+			expected: []string{"xyz[1] is not equal", "xyz[3] is not equal"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			diffs := deephash.Diff("xyz", tc.lSrc, tc.rSrc)
+			if !reflect.DeepEqual(diffs, tc.expected) {
+				t.Errorf("got %#v, want %#v", diffs, tc.expected)
+			}
+		})
+	}
+}
+
+func BenchmarkHash(b *testing.B) {
+	for n, tc := range differentTestCases {
+		b.Run(fmt.Sprintf("[%d] %#v", n, tc), func(b *testing.B) {
+			for name, fn := range map[string]func(interface{}){
+				// "upstream": func(i interface{}) {
+				// 	b := upstream.Hash(i)
+				// 	const hashBytes = 8
+				// 	if len(b) < hashBytes {
+				// 		newB := make([]byte, hashBytes)
+				// 		copy(newB, b)
+				// 		b = newB
+				// 	}
+				// 	h := binary.LittleEndian.Uint64(b)
+				// 	if false {
+				// 		fmt.Println(h)
+				// 	}
+				// },
+				"deep hash": func(i interface{}) {
+					h := deephash.Hash(i)
+					if false {
+						fmt.Println(h)
+					}
+				},
+				// "fast deep hash": func(i interface{}) {
+				// 	h := deephash.FastHash(i)
+				// 	if false {
+				// 		fmt.Println(h)
+				// 	}
+				// },
+			} {
+				b.Run(name, func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						fn(tc)
+					}
+				})
+			}
+		})
 	}
 }
