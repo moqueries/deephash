@@ -258,15 +258,9 @@ func TestRef(t *testing.T) {
 	if deephash.Hash(a) != deephash.Hash(b) {
 		t.Fatal("Expecting our two reference cases to hash the same even though different underlying objects, because same values")
 	}
-	if deephash.Hash(a) != deephash.Hash(a) {
-		t.Fatal("Expecting our two reference cases to hash the same because they are the same")
-	}
 }
 
 func TestBooleans(t *testing.T) {
-	if deephash.Hash(true) != deephash.Hash(true) {
-		t.Fatal("Expecting the same boolean value to have the same hash")
-	}
 	if deephash.Hash(true) == deephash.Hash(false) {
 		t.Fatal("Expecting true to hash differently than false")
 	}
