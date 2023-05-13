@@ -3,6 +3,7 @@ package deephash_test
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"testing"
 
 	"moqueries.org/deephash"
@@ -273,14 +274,34 @@ func TestDiff(t *testing.T) {
 	}{
 		"strings": {lSrc: "1", rSrc: "2", expected: []string{"xyz is not equal"}},
 		"structs": {
-			lSrc:     testStruct{I: 31, S: "1", Interface: testStruct{I: 42}},
-			rSrc:     testStruct{I: 31, S: "2", Interface: 42},
-			expected: []string{"xyz.S is not equal", "xyz.Interface is not equal"},
+			lSrc: testStruct{I: 31, S: "1", Interface: testStruct{I: 42}},
+			rSrc: testStruct{I: 31, S: "2", Interface: 42},
+			expected: []string{
+				"xyz.Interface is not equal",
+				"xyz.Interface.F32 is not equal",
+				"xyz.Interface.F64 is not equal",
+				"xyz.Interface.I is not equal",
+				"xyz.Interface.I16 is not equal",
+				"xyz.Interface.I32 is not equal",
+				"xyz.Interface.I64 is not equal",
+				"xyz.Interface.I8 is not equal",
+				"xyz.Interface.S is not equal",
+				"xyz.Interface.U16 is not equal",
+				"xyz.Interface.U32 is not equal",
+				"xyz.Interface.U64 is not equal",
+				"xyz.Interface.U8 is not equal",
+				"xyz.S is not equal",
+			},
 		},
 		"map keys": {
-			lSrc:     map[string]int{"key1": 42},
-			rSrc:     map[string]int{"key2": 42},
-			expected: []string{"xyz[key2-key] is not equal", "xyz[key2] is not equal"},
+			lSrc: map[string]int{"key1": 42},
+			rSrc: map[string]int{"key2": 42},
+			expected: []string{
+				"xyz[key1] is not equal",
+				"xyz[key1-key] is not equal",
+				"xyz[key2] is not equal",
+				"xyz[key2-key] is not equal",
+			},
 		},
 		"map values": {
 			lSrc:     map[string]int{"key1": 42},
@@ -299,7 +320,16 @@ func TestDiff(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
+			sort.Strings(tc.expected)
+
 			diffs := deephash.Diff("xyz", tc.lSrc, tc.rSrc)
+			sort.Strings(diffs)
+			if !reflect.DeepEqual(diffs, tc.expected) {
+				t.Errorf("got %#v, want %#v", diffs, tc.expected)
+			}
+
+			diffs = deephash.Diff("xyz", tc.rSrc, tc.lSrc)
+			sort.Strings(diffs)
 			if !reflect.DeepEqual(diffs, tc.expected) {
 				t.Errorf("got %#v, want %#v", diffs, tc.expected)
 			}
