@@ -10,6 +10,8 @@ import (
 	"strconv"
 )
 
+const notEq = " is not equal"
+
 // Hash returns a fnv64a hash of src, hashing recursively any exported
 // properties, including slices and maps/
 func Hash(src interface{}) uint64 {
@@ -53,6 +55,10 @@ func Diff(field string, lSrc, rSrc interface{}) []string {
 	err = deepHash(vSrc, field, &cw, make(map[uintptr][]reflect.Type))
 	if err != nil {
 		panic(err)
+	}
+
+	for k := range cw.writes {
+		cw.diffs = append(cw.diffs, k+notEq)
 	}
 
 	return cw.diffs
@@ -104,13 +110,15 @@ func (w *compareWriter) Write(f string, p []byte) error {
 		return nil
 	}
 
-	if !bytes.Equal(p, w.writes[f]) {
+	prevP, ok := w.writes[f]
+	if !ok || !bytes.Equal(p, prevP) {
 		if f == "" {
 			f = "value"
 		}
 
-		w.diffs = append(w.diffs, f+" is not equal")
+		w.diffs = append(w.diffs, f+notEq)
 	}
+	delete(w.writes, f)
 
 	return nil
 }
