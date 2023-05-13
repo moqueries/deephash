@@ -307,6 +307,43 @@ func TestDiff(t *testing.T) {
 	}
 }
 
+type parent struct {
+	c1, c2 *child
+}
+
+type child struct {
+	val string
+}
+
+func TestStackCycle(t *testing.T) {
+	c1 := child{val: "child"}
+	c2 := child{val: "child"}
+
+	ch1 := deephash.Hash(&c1)
+	ch2 := deephash.Hash(&c2)
+	if ch1 != ch2 {
+		t.Fatalf("got %d != %d, want equal", ch1, ch2)
+	}
+
+	p1 := parent{c1: &c1, c2: &c1}
+	p2 := parent{c1: &c1, c2: &c2}
+	ph1 := deephash.Hash(p1)
+	ph2 := deephash.Hash(p2)
+	if ph1 != ph2 {
+		t.Errorf("got %d != %d, want equal", ph1, ph2)
+	}
+
+	diffs := deephash.Diff("", &p1, &p2)
+	if len(diffs) != 0 {
+		t.Errorf("got %#v, want no differences", diffs)
+	}
+
+	diffs = deephash.Diff("", &p2, &p1)
+	if len(diffs) != 0 {
+		t.Errorf("got %#v, want no differences", diffs)
+	}
+}
+
 func BenchmarkHash(b *testing.B) {
 	for n, tc := range differentTestCases {
 		b.Run(fmt.Sprintf("[%d] %#v", n, tc), func(b *testing.B) {

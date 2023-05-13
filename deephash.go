@@ -130,7 +130,7 @@ func deepHash(src reflect.Value, field string, h fieldWriter, visited map[uintpt
 	if src.CanAddr() {
 		addr := src.UnsafeAddr()
 		h := addr
-		seen := visited[h]
+		seen, previouslySeen := visited[h]
 		newType := src.Type()
 		for _, typ := range seen {
 			if typ == newType {
@@ -139,6 +139,20 @@ func deepHash(src reflect.Value, field string, h fieldWriter, visited map[uintpt
 		}
 		// Remember, remember...
 		visited[h] = append(seen, newType)
+		defer func() {
+			// If we get here, we've either added a new entry in visited or
+			// a new type to the end of a slice in visited
+			if previouslySeen {
+				// If we just added a type to the end, remove it when
+				// returning from this level of recursion
+				prev := visited[h]
+				visited[h] = prev[0 : len(prev)-1]
+			} else {
+				// If this is the first time we've seen this memory address,
+				// pop it off when returning from this level of recursion
+				delete(visited, h)
+			}
+		}()
 	}
 
 	// deal with pointers/interfaces
@@ -287,7 +301,7 @@ func appendName(base, field string, nt namedType) string {
 // 	if src.CanAddr() {
 // 		addr := src.UnsafeAddr()
 // 		h := addr
-// 		seen := visited[h]
+// 		seen, previouslySeen := visited[h]
 // 		newType := src.Type()
 // 		for _, typ := range seen {
 // 			if typ == newType {
@@ -296,6 +310,20 @@ func appendName(base, field string, nt namedType) string {
 // 		}
 // 		// Remember, remember...
 // 		visited[h] = append(seen, newType)
+// 		defer func() {
+// 			// If we get here, we've either added a new entry in visited or
+// 			// a new type to the end of a slice in visited
+// 			if previouslySeen {
+// 				// If we just added a type to the end, remove it when
+// 				// returning from this level of recursion
+// 				prev := visited[h]
+// 				visited[h] = prev[0 : len(prev)-1]
+// 			} else {
+// 				// If this is the first time we've seen this memory address,
+// 				// pop it off when returning from this level of recursion
+// 				delete(visited, h)
+// 			}
+// 		}()
 // 	}
 //
 // 	// deal with pointers/interfaces
